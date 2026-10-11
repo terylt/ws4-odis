@@ -35,6 +35,10 @@ The Router accepts revocation data only from a party authorized to revoke the su
 
 The Router discards cached downstream credentials derived from revoked authority. With events or lists, repeated checks are local lookups; issuer queries incur another remote call.
 
+## Revocation by the Router
+
+The Router can also be a source of revocation, within its own authority. It may block an agent, session or delegation locally when a policy calls for it, for example after detecting misuse, and may revoke downstream credentials it obtained itself. Anything broader, such as revoking an agent's credentials or a principal's session, belongs to the party that issued them; the Router reports to that party rather than revoking directly.
+
 ## Unavailable status
 
 If current revocation data is unavailable, the Router may rely on cached data only within the declared delay. Once it is older, the Router stops accepting affected tokens until the data is refreshed. Deployments requiring continued calls must make the revocation source as available as the Router.

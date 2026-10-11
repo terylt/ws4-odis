@@ -603,7 +603,7 @@ Destructive operations include actions such as deleting, paying, or sending when
 
 **Load protection** guards against floods and runaway loops. It may run before token verification, where it can protect verification and policy-engine capacity. It counts every request, including denials, and uses only information available at that point, such as network address, connection, or client certificate. Using an unverified claimed identity would let forged traffic exhaust another agent's allowance. The deployment chooses where to place this control.
 
-**Authority limits** cap the use of delegated authority and are required by ODIS. They use verified identities and resolved targets. The Router checks them before dispatch but counts only permitted calls that were dispatched. Counting refusals would let denied traffic exhaust an allowance. If a rate-limit service checks and counts in one operation, the Router should consult it after the policy decision or account for that behavior when setting the limit.
+**Authority limits** cap the use of delegated authority and are required by ODIS. They use verified identities and resolved targets. The Router checks them before dispatch but counts only permitted calls that were dispatched. Counting refusals would let denied traffic exhaust an allowance. If a rate-limit service checks and counts in one operation, the Router should consult it after the policy decision or account for that behavior when setting the limit. Repeated breaches of an authority limit may lead a deployment to block the offending delegation or agent, as described in Revocation and termination; breaches of load-protection limits never do, since their keys are not verified.
 
 ### Count keys
 
@@ -664,6 +664,10 @@ The Router accepts revocation data only from a party authorized to revoke the su
 - **After the call:** No further revocation check is needed, but after-call obligations still run for actions already taken.
 
 The Router discards cached downstream credentials derived from revoked authority. With events or lists, repeated checks are local lookups; issuer queries incur another remote call.
+
+### Revocation by the Router
+
+The Router can also be a source of revocation, within its own authority. It may block an agent, session or delegation locally when a policy calls for it, for example after detecting misuse, and may revoke downstream credentials it obtained itself. Anything broader, such as revoking an agent's credentials or a principal's session, belongs to the party that issued them; the Router reports to that party rather than revoking directly.
 
 ### Unavailable status
 
