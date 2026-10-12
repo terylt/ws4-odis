@@ -567,9 +567,13 @@ Most tools do not understand ODIS tokens. They require a credential issued for t
 
 ### Provider adapter
 
-The Bridge's provider adapter uses Bridge-recorded authority to obtain credentials accepted by a downstream system. It may exchange the Bridge token, or a derivative, with that system's identity provider. In a gateway, the adapter may run alongside the Router. In a separate deployment, the Router may request the credential from the adapter, or an adapter later in the path may attach it. The exchange remains tied to a permitted call.
+The Bridge's provider adapter uses Bridge-recorded authority to obtain credentials accepted by a downstream system. It obtains them on its own credential or by exchanging a derivative of the Bridge token with that system's identity provider (see Bound tokens). In a gateway, the adapter may run alongside the Router. In a separate deployment, the Router may request the credential from the adapter, or an adapter later in the path may attach it. The exchange remains tied to a permitted call.
 
 For a native-mode tool that verifies ODIS credentials itself, no exchange is needed. The agent's Passport credential and delegation pass through for the tool to verify.
+
+### Bound tokens
+
+A Bridge token bound to the agent's key can be used only by the agent, so the adapter cannot present it to another identity provider. The adapter instead requests the downstream credential on its own credential, naming the agent and principal the Router verified. Alternatively, the issuer may explicitly allow the adapter to exchange tokens bound to another key. In the first case the downstream identity provider relies on the adapter's statement, so it must trust the adapter for that purpose. In both cases the agent's key stays with the agent, and the downstream credential is bound to the component that presents it.
 
 ### Decision order
 
@@ -828,7 +832,7 @@ This section maps the Router proposal to the current ODIS draft. Section numbers
 | Decision binding | Unspecified | Use a unique evaluation ID, retain the evaluated call, and act on a fresh decision once. Authenticate the Router and any external policy engine. | Decision binding | Split from #24 |
 | §6.3, L2-13, L3-02 verification | Issuance checks defined; call-time checks only partly defined | Verify a trusted Bridge token carrying Passport conclusions and registration facts. A receiving organization's Bridge checks incoming cross-organization credentials and issues its own token. Recheck mutable facts on each call. | Router as verifier | #27, #28, #33 |
 | §3.3 Router role | Discovery, governance, and safeguards; no routing rule | Resolve and apply policy to the actual server, operation, and resources. | Target resolution | — |
-| §7.2 gateway pattern | Exchanges downstream credentials before governance checks | Decide first, then obtain or apply a credential narrowed to the decision where possible and always withheld from the agent. Reuse only after a separate permit for each call; link exchange and decision records. | Downstream credentials | — |
+| §7.2 gateway pattern | Exchanges downstream credentials before governance checks | Decide first, then obtain or apply a credential narrowed to the decision where possible and always withheld from the agent. When the Bridge token is key-bound, obtain it on the adapter's own credential. Reuse only after a separate permit for each call; link exchange and decision records. | Downstream credentials | — |
 | L3-03 limits | Configurable per-agent limits, especially for destructive operations | Define count units and windows, trusted destructive classification, verified count keys that survive delegation fan-out, separate load limits, and shared counters. | Limits and state | — |
 | L3-04, L3-05 revocation | Terminates affected sessions; kill switch cascades to active sessions | Define five revocation levels and checks before dispatch and result release. Define event subject IDs for agents, delegations, and sessions. | Revocation and termination | #25 |
 | L3-02, L3-08 checkpoints | Free placement; gateway recommended; composition undefined | State placement criteria. Require every Router on a path to permit, and each decision source to respect others' refusals. Protect paths from host compromise with an independently administered Router. | Placement and composition | #23, #31 |

@@ -4,9 +4,13 @@ Most tools do not understand ODIS tokens. They require a credential issued for t
 
 ## Provider adapter
 
-The Bridge's provider adapter uses Bridge-recorded authority to obtain credentials accepted by a downstream system. It may exchange the Bridge token, or a derivative, with that system's identity provider. In a gateway, the adapter may run alongside the Router. In a separate deployment, the Router may request the credential from the adapter, or an adapter later in the path may attach it. The exchange remains tied to a permitted call.
+The Bridge's provider adapter uses Bridge-recorded authority to obtain credentials accepted by a downstream system. It obtains them on its own credential or by exchanging a derivative of the Bridge token with that system's identity provider (see Bound tokens). In a gateway, the adapter may run alongside the Router. In a separate deployment, the Router may request the credential from the adapter, or an adapter later in the path may attach it. The exchange remains tied to a permitted call.
 
 For a native-mode tool that verifies ODIS credentials itself, no exchange is needed. The agent's Passport credential and delegation pass through for the tool to verify.
+
+## Bound tokens
+
+A Bridge token bound to the agent's key can be used only by the agent, so the adapter cannot present it to another identity provider. The adapter instead requests the downstream credential on its own credential, naming the agent and principal the Router verified. Alternatively, the issuer may explicitly allow the adapter to exchange tokens bound to another key. In the first case the downstream identity provider relies on the adapter's statement, so it must trust the adapter for that purpose. In both cases the agent's key stays with the agent, and the downstream credential is bound to the component that presents it.
 
 ## Decision order
 
