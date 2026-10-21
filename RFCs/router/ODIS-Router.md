@@ -159,7 +159,7 @@ For each call, the Router MUST establish (1) the agent and its running instance,
 
 *Core; L1-09*
 
-The Router MUST verify that the caller holds the private key the token is bound to, for example a signature over part of the request or a mutually authenticated TLS connection bound to the token. A copied token alone MUST NOT be accepted.
+The Router MUST verify that the caller holds the private key the token is bound to, for example a proof signed with that key (DPoP or a WIMSE Workload Proof Token), an HTTP Message Signature, or a mutually authenticated TLS connection bound to the token. A copied token alone MUST NOT be accepted. The caller is the component that holds the key and presents the request: the agent's runtime, or in the sidecar and SDK patterns ([ODIS §7.2](../ODIS.md#72-deployment-patterns)) the isolated presenter (L2-13). Where the Router is a separate hop, the presenter proves possession to it on that hop. Where the Router runs inside the presenter, isolation from the agent (RTR-01) takes the place of that proof.
 
 ##### RTR-06 Bridge token checks
 
@@ -205,19 +205,19 @@ The Router resolves a call to its actual target before requesting a policy decis
 
 *Core; §6.4*
 
-Before requesting a decision, the Router MUST determine (1) the operation type: a tool invocation, resource read, prompt fetch, or other operation the binding supports; (2) the server that will handle the call, identified through trusted routing information; (3) the tool or endpoint and the action it performs; (4) every resource the call affects, such as the record an argument identifies or the destination collection of a create operation; and (5) the gateway entry point or namespace, if present, because a deployment may grant access to different virtual servers. For a web API, the Router uses the method, address, and relevant fields. Policy MUST be evaluated against the resolved target, not the caller-visible name.
+Before requesting a decision, the Router MUST determine (1) the operation type: a tool invocation, resource read, prompt fetch, or other operation the binding supports; (2) the service that will handle the call, identified through trusted routing information, with the attributes policy may depend on, such as owner and region; (3) the tool or endpoint and the action it performs; (4) every resource the call affects: the data the operation reads or changes, such as a record, file, or collection, identified by URI. For example, the invoice an argument identifies, or the destination collection of a create operation. Where the affected records are known only when the operation runs, such as a search or a server-side bulk update, the resource is the named collection or scope the operation can reach; and (5) the gateway entry point or namespace, if present, because a deployment may grant access to different virtual servers. For a web API, the Router uses the method, address, and relevant fields. Policy MUST be evaluated against the resolved target, not the caller-visible name.
 
 ##### RTR-13 Resolution sources
 
 *Core; §6.4*
 
-When the Router runs in the gateway, the gateway's routing configuration MUST determine both the target evaluated and the target invoked. If they run separately, the gateway MUST provide a trusted mapping or a signed statement of the target resolved for each call. In either case, the evaluated target MUST match the actual destination. A trusted tool or service registry MAY supplement that mapping. Protocol-specific bindings define how calls map to policy actions and resources, including which arguments identify resources or matter to the decision. The agent supplies the name and arguments but MUST NOT supply the mapping used to interpret them; otherwise it could present a sensitive call as a harmless one.
+When the Router runs in the gateway, the gateway's routing configuration MUST determine both the target evaluated and the target invoked. If they run separately, the gateway MUST provide a trusted mapping or a signed statement of the target resolved for each call. In either case, the evaluated target MUST match the actual destination. The gateway MAY choose among instances of that service after the decision, but only instances with the evaluated attributes that also meet any constraint the decision imposes, such as region. A trusted tool or service registry MAY supplement that mapping. Protocol-specific bindings define how calls map to policy actions and resources, including which arguments identify resources or matter to the decision. The agent supplies the name and arguments but MUST NOT supply the mapping used to interpret them; otherwise it could present a sensitive call as a harmless one.
 
 ##### RTR-14 Resolution failure
 
 *Core; §6.4*
 
-The Router MUST deny a call if it cannot resolve the name, server, or affected resources, or if resolution would require an unknown target or a wildcard. It MUST NOT substitute a wildcard for resources it cannot identify or infer a safe target from incomplete information.
+The Router MUST deny a call if it cannot resolve the name, server, or affected resources, or if resolution would require an unknown target or a wildcard. It MUST NOT substitute a wildcard for resources it cannot identify or infer a safe target from incomplete information. A named, bounded collection is not a wildcard.
 
 ##### RTR-15 Target attributes
 
@@ -279,7 +279,7 @@ The Router MUST assign each policy request a unique `evaluation_id`. The policy 
 
 *Core; L2-13*
 
-The Router MUST retain the incoming call unchanged and derive the policy request from it. Before dispatch, it MUST confirm that the operation, arguments, resolved target, and route still match what was evaluated; if any of these or the permit's obligations change, it MUST obtain a new decision. The Router MAY add a downstream credential after approval but MUST NOT change the evaluated operation or arguments. A digest of arguments may detect a change, but it cannot by itself bind a decision to the target, route, and retained call.
+The Router MUST retain the incoming call unchanged and derive the policy request from it. A transformation defined by Router or gateway configuration, never by the agent, MAY run before evaluation; the transformed call then becomes the retained call, so policy evaluates it and dispatch MUST match it. Before dispatch, it MUST confirm that the operation, arguments, resolved target, and route still match what was evaluated; if any of these or the permit's obligations change, it MUST obtain a new decision. The Router MAY add a downstream credential after approval but MUST NOT change the evaluated operation or arguments. A digest of arguments may detect a change, but it cannot by itself bind a decision to the target, route, and retained call.
 
 ##### RTR-24 Freshness and single use
 
@@ -301,7 +301,7 @@ Most tools require a credential issued for their own access system, such as an O
 
 *Core; L2-13, §7.2*
 
-The Router MUST obtain a policy permit before the provider adapter issues or applies a downstream credential for that call, and each exchange MUST remain tied to a permitted call. Exchanging earlier would leave a usable credential for a call that might be denied or later reused without evaluation.
+The provider adapter MUST NOT issue or apply a downstream credential for a call until the call is cleared for dispatch: every required decision source has permitted it (RTR-44) and every before-dispatch obligation has been met (RTR-55). Each exchange MUST remain tied to that call. Exchanging earlier would leave a usable credential for a call that might be denied or later reused without evaluation.
 
 ##### RTR-27 Credential custody
 
@@ -359,7 +359,7 @@ Destructive operations include actions such as deleting, paying, or sending when
 
 *Core; L3-03*
 
-Authority limits MUST use verified identities and resolved targets. The Router MUST check them before dispatch but count only permitted calls that were dispatched; counting refusals would let denied traffic exhaust an allowance. If a rate-limit service checks and counts in one operation, the Router SHOULD consult it after the policy decision or account for that behavior when setting the limit. Most policy engines do not retain counters, so the Router MAY enforce configured limits itself, pass current totals to the policy engine, or consult a dedicated rate-limit service such as Limitador.
+Authority limits MUST use verified identities and resolved targets. The Router MUST check them before dispatch but count only permitted calls that were dispatched; counting refusals would let denied traffic exhaust an allowance. Where Router instances share a limit, the check MUST reserve units atomically in the shared counter, so two calls cannot both take the last unit. A reservation is released if the call is refused or fails before dispatch, and kept if dispatch succeeds or its outcome is unknown, such as after a timeout. If a rate-limit service checks and counts in one operation, the Router SHOULD consult it after the policy decision or account for that behavior when setting the limit. Most policy engines do not retain counters, so the Router MAY enforce configured limits itself, pass current totals to the policy engine, or consult a dedicated rate-limit service such as Limitador.
 
 ##### RTR-36 Count keys
 
@@ -416,7 +416,7 @@ The Router MAY receive signed revocation events, fetch signed revocation lists, 
 
 *Core; L3-04*
 
-The Router MUST check revocation (1) at token verification, rejecting a revoked caller before policy evaluation; (2) before obtaining a downstream credential and again as the final step before sending the call, because approval or other work may have delayed dispatch after the first check; and (3) before releasing a result, withholding it if authority was revoked and, for a stream, stopping further release. The tool action cannot be undone, and data already released cannot be recalled. No further check is needed after the call, but after-call obligations still run for actions already taken. The Router MUST discard cached downstream credentials derived from revoked authority.
+The Router MUST check revocation (1) at token verification, rejecting a revoked caller before policy evaluation; (2) before obtaining a downstream credential and again as the final step before sending the call, because approval or other work may have delayed dispatch after the first check; and (3) before releasing a result, withholding it if authority was revoked. For a stream, the Router MUST check again at intervals no longer than the declared revocation delay, and MUST stop further release once authority is revoked or its revocation data is older than that delay (RTR-43). The tool action cannot be undone, and data already released cannot be recalled. No further check is needed after the call, but after-call obligations still run for actions already taken. The Router MUST discard cached downstream credentials derived from revoked authority.
 
 ##### RTR-43 Stale revocation data
 
@@ -530,7 +530,7 @@ Obligation support is optional. A Router without it denies any permit carrying a
 
 *no profile; L2-02*
 
-The Router MUST hold the call until the condition is met. For approval, it MAY wait or return a pending status for a later retry. An approval applies only to the exact call evaluated; it MUST NOT authorize, for example, a larger payment or another invoice.
+The Router MUST hold the call until the condition is met. For approval, it MAY wait or return a pending status for a later retry. An approval MUST be bound to the exact retained call and resolved target; it MUST NOT authorize, for example, a larger payment or another invoice. An approval does not extend the decision's validity: if the decision has expired, the Router MUST obtain a fresh decision before dispatch, with the approval presented as met, and repeat its current-state checks, including revocation (RTR-42).
 
 ##### RTR-56 Before result release
 
@@ -920,6 +920,8 @@ References identify the affected requirements or ODIS issues.
 **Provider adapter.** The Bridge component that obtains a tool credential from Bridge-recorded authority ([ODIS §3.2](../ODIS.md#32-layer-2--the-bridge-delegation--access)).
 
 **Registration record.** An organization's record of an agent: its owner, the software it may run, and the rules that apply to it ([ODIS §6.1](../ODIS.md#61-agent-registration-record)).
+
+**Resource.** The data a call reads or changes, identified by URI, such as a record, file, or collection. Not the server or tool that handles the call, and not the MCP operation of the same name. Granted authority (`authority.resources`) may name a broader resource that contains it.
 
 **Resolved target.** The actual server, operation, and resources determined by the Router, including the tool when applicable.
 
