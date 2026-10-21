@@ -55,7 +55,7 @@ A Router sits on the path between an agent and the tools and services the agent 
 4. **Request a decision:** send the policy engine the required and declared inputs ([2.1.4](#214-policy-request)).
 5. **Validate the decision:** confirm the response belongs to this evaluation and is still fresh ([2.1.5](#215-decision-handling), [2.1.6](#216-decision-binding)).
 6. **Enforce:** meet any obligations, recheck revocation, apply a downstream credential, and dispatch the retained call, or stop ([2.1.7](#217-downstream-credentials), [2.1.9](#219-revocation), [2.2.1](#221-obligations)).
-7. **Record:** write the decision record ([2.1.12](#2112-audit)).
+7. **Record:** write the decision record ([2.1.12](#2112-audit)). Where [RTR-64](#rtr-64-durable-record-before-irreversible-effects) applies, the component performing an irreversible effect commits an intent before that effect and records its outcome afterward.
 
 The Router verifies inputs and enforces outcomes; a policy engine applies organizational rules to Router-supplied inputs and decides. The Router and the policy engine may run together or separately. The Router's components may share a process or run separately, but the agent does not control them (RTR-01). Verification and target resolution use trusted keys, revocation data, routing configuration, and registry records rather than agent-supplied claims.
 
@@ -69,7 +69,7 @@ The Router's inputs arrive in three ways:
 
 ### 1.2 Trust inputs
 
-Raw evidence about the agent, such as a software-image signature or platform statement, is appraised before an Agent Runtime Credential is issued, by a Verifier in the Bridge. The Router receives the Bridge's signed account of the credential issuer's results, not the raw evidence.
+Raw evidence about the agent, such as a software-image signature or platform statement, is appraised before an Agent Runtime Credential is issued. The Router receives the Bridge's signed account of the credential issuer's results, not the raw evidence.
 
 The Bridge records authority granted by an entitled party, such as a principal or administrator. Principal, task, and permissions are grant decisions rather than facts established by technical evidence. The Router relies on the Bridge's signed claims about them.
 
@@ -704,7 +704,7 @@ The deployment publishes one declaration per policy engine (RTR-17). It names:
 
 ### 3.6 Decision record
 
-One per decision (RTR-50). Each includes:
+One per decision (RTR-50). Each includes the following. If the Router denies before verifying identity or resolving the target, fields it could not establish are omitted; any unverified claims it retains are labeled as such:
 
 - the `evaluation_id`, `request_trace_id`, receipt time, and decision time;
 - the agent, running instance, and software digest, which supports later attribution of actions to a particular software version;
